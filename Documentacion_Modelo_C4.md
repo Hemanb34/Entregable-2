@@ -16,18 +16,19 @@ Nuestra plataforma no es dueña del inventario inmobiliario; su núcleo de negoc
 C4Context
 title Nivel 1: Diagrama de Contexto del Sistema
 
-Person(arrendatario, "Arrendatario", "Busca inmuebles, usa filtros y estima si el precio ofertado es justo.")
-Person(propietario, "Propietario", "Consulta competidores y obtiene rangos sugeridos de precio de publicación.")
-Person(admin, "Administrador", "Acciona crawlers, reentrena modelos predictivos y supervisa métricas del sistema.")
+Person(arrendatario, "Arrendatario", "Busca inmuebles y valida si el precio es justo.")
+Person(propietario, "Propietario", "Consulta competidores y obtiene márgenes de publicación.")
+Person(admin, "Administrador", "Acciona crawlers, reentrena IA y supervisa métricas.")
 
-System(sistema, "Plataforma de Búsqueda y Estimación Inmobiliaria", "Sistema centralizado para buscar ofertas unificadas, comparar precios mediante IA y analizar el mercado local.")
+System(sistema, "Plataforma Inmobiliaria", "Sistema central de búsqueda y estimación con IA.")
+System_Ext(portales, "Portales Externos", "Fuentes de la oferta (Finca Raíz, etc).")
 
-System_Ext(portales, "Portales Inmobiliarios Externos", "Sitios web de origen de la oferta inmobiliaria (Ej. Finca Raíz, Metrocuadrado).")
+Rel_D(arrendatario, sistema, "Busca inmuebles y valida precios")
+Rel_D(propietario, sistema, "Compara propiedades y obtiene sugerencias")
+Rel_D(admin, sistema, "Monitorea plataforma y orquesta IA")
+Rel_D(sistema, portales, "Extrae publicaciones", "Web Scraping / HTTPS")
 
-Rel(arrendatario, sistema, "Busca inmuebles y valida precios")
-Rel(propietario, sistema, "Compara propiedades y obtiene sugerencias de precio")
-Rel(admin, sistema, "Monitorea plataforma, acciona ingesta de datos y reentrenamiento de modelos")
-Rel(sistema, portales, "Extrae datos de publicaciones originales", "Web Scraping / HTTPS")
+UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```
 
 ---
@@ -48,26 +49,30 @@ title Nivel 2: Diagrama de Contenedores
 Person(user, "Usuarios de Plataforma", "Arrendatarios, Propietarios y Admin")
 
 System_Boundary(c1, "Sistema de Búsqueda y Estimación") {
-    Container(spa, "Aplicación Web Frontend", "React / Vue.js", "Provee la interfaz unificada de búsqueda, estimación y el panel administrativo.")
-    Container(api, "API de Negocio Backend", "Node.js / Java", "Gestión de negocio, auth, búsquedas rápidas (<2s), y cálculo de métricas agregadas.")
-    Container(ml, "Servicio Machine Learning", "Python (FastAPI)", "Expone la predicción de precios (<3s) y ejecuta el pipeline de reentrenamiento seguro.")
-    Container(crawler, "Worker de Extracción (Crawlers)", "Python (Scrapy)", "Orquestación y extracción periódica (24h) o manual de datos externos.")
+    Container(spa, "Web Frontend", "React/Vue.js", "Interfaz unificada de usuario.")
+    Container(api, "API Backend", "Node.js/Java", "Lógica de negocio y búsquedas (<2s).")
+    Container(ml, "Servicio ML", "Python", "Predicción IA (<3s) y reentrenamiento.")
+    Container(crawler, "Crawlers", "Python/Scrapy", "Extracción periódica y manual.")
     
-    ContainerDb(db, "Base de Datos Principal", "PostgreSQL", "Almacena catálogo de inmuebles, auditoría de crawlers y métricas ML.")
-    ContainerDb(cache, "Caché en Memoria", "Redis", "Gestiona temporalidad de bloqueos de admin (30 min) y encolamiento de tareas.")
+    ContainerDb(db, "Base de Datos", "PostgreSQL", "Catálogo, métricas e historial.")
+    ContainerDb(cache, "Caché", "Redis", "Bloqueos (30min) y colas.")
 }
 
 System_Ext(portales, "Portales Externos", "Fuentes de datos")
 
-Rel(user, spa, "Interactúa con la interfaz", "HTTPS")
-Rel(spa, api, "Envía peticiones API REST", "JSON/HTTPS")
-Rel(api, db, "Lee y escribe datos", "TCP")
-Rel(api, cache, "Verifica/Guarda bloqueos (RN-05)", "TCP")
-Rel(api, ml, "Solicita estimación de precio o inicia pipeline", "REST")
-Rel(api, crawler, "Desencadena o lee estado de extracción", "Eventos/Colas")
-Rel(crawler, portales, "Extrae HTML y datos estructurados", "HTTPS")
-Rel(crawler, db, "Guarda registros crudos conservando URL original (RN-06)", "TCP")
-Rel(ml, db, "Consulta datos crudos, guarda logs RMSE y modelos", "TCP")
+Rel_D(user, spa, "Interactúa", "HTTPS")
+Rel_D(spa, api, "Llama API REST", "JSON")
+
+Rel_D(api, ml, "Solicita IA", "REST")
+Rel_D(api, crawler, "Desencadena", "Colas")
+Rel_R(api, cache, "Verifica bloqueos", "TCP")
+Rel_D(api, db, "Lee/Escribe", "TCP")
+
+Rel_D(crawler, portales, "Scrapea HTML", "HTTPS")
+Rel_D(crawler, db, "Guarda crudos", "TCP")
+Rel_D(ml, db, "Lee crudos / Guarda RMSE", "TCP")
+
+UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
 ---
@@ -86,32 +91,33 @@ Garantiza que la modificación de una regla de negocio no rompa otra. Si el día
 
 ```mermaid
 C4Component
-title Nivel 3: Componentes - API de Negocio Backend
+title Nivel 3: Componentes - API Backend
+
+Container(spa, "Web Frontend", "React/Vue", "Interfaz de usuario")
 
 Container_Boundary(api, "API de Negocio Backend") {
-    Component(auth, "Módulo de Autenticación", "Controlador", "Valida credenciales y gestiona bloqueos por fallos consecutivos (RF-07, RN-05).")
-    Component(search, "Módulo de Búsqueda Inmobiliaria", "Servicio Core", "Ejecuta consultas optimizadas en DB con filtros y ordena por 'mejor oferta' (RF-02).")
-    Component(analytics, "Controlador de Analytics", "Servicio Lógico", "Calcula métricas agregadas (min, max, prom) y rangos sugeridos (RF-05, RF-06).")
-    Component(admin_orch, "Orquestador de Admin", "Servicio de Integración", "Recibe órdenes manuales o cronificadas para enviar tareas a ML o Crawlers (RF-08).")
+    Component(auth, "Autenticación", "Controlador", "Valida credenciales y bloqueos.")
+    Component(search, "Búsqueda", "Servicio Core", "Ejecuta consultas con filtros.")
+    Component(analytics, "Analytics", "Servicio Lógico", "Calcula métricas y rangos.")
+    Component(admin_orch, "Orquestador Admin", "Integración", "Envía tareas a ML/Crawlers.")
 }
 
-Container(spa, "Aplicación Web Frontend", "React/Vue", "Interfaz")
 ContainerDb(db, "Base de Datos", "PostgreSQL", "Almacenamiento")
 ContainerDb(cache, "Caché", "Redis", "Gestión de sesiones")
-Container(ml, "Servicio ML", "Python", "Inferencia")
+Container(ml, "Servicio ML", "Python", "Inferencia IA")
 Container(crawler, "Worker Crawler", "Python", "Scraping")
 
-Rel(spa, auth, "Solicita token / Intenta Login")
-Rel(spa, search, "Envía parámetros de búsqueda (Filtros Avanzados)")
-Rel(spa, analytics, "Solicita comparativa de mercado y estimación")
-Rel(spa, admin_orch, "Ejecuta acciones de administración del ecosistema")
+Rel_D(spa, auth, "Login")
+Rel_D(spa, search, "Busca")
+Rel_D(spa, analytics, "Analiza")
+Rel_D(spa, admin_orch, "Administra")
 
-Rel(auth, cache, "Verifica/Registra intentos fallidos de admin")
-Rel(search, db, "Consulta catálogo unificado de inmuebles")
-Rel(analytics, db, "Consulta propiedades similares del sector")
-Rel(admin_orch, ml, "Desencadena pipeline de reentrenamiento")
-Rel(admin_orch, crawler, "Acciona ejecución manual de crawlers")
-Rel(search, ml, "Solicita estimaciones en lote para ordenar resultados")
+Rel_D(auth, cache, "Registra fallos")
+Rel_D(search, db, "Consulta catálogo")
+Rel_D(analytics, db, "Consulta propiedades")
+Rel_D(admin_orch, ml, "Reentrena")
+Rel_D(admin_orch, crawler, "Ejecuta manual")
+Rel_R(search, ml, "Lote IA")
 ```
 
 ### 3.2 Componentes del Servicio Machine Learning
@@ -124,25 +130,27 @@ El **Evaluador de Modelos** funciona como un estricto guardia de seguridad. Toma
 
 ```mermaid
 C4Component
-title Nivel 3: Componentes - Servicio Machine Learning
+title Nivel 3: Componentes - Servicio ML
+
+Container(api, "API Backend", "Node/Java", "Orquestador")
 
 Container_Boundary(ml, "Servicio Machine Learning") {
-    Component(api_ml, "Controlador API REST", "FastAPI / Flask", "Expone endpoints para predicción en tiempo real y recibe webhooks de reentrenamiento.")
-    Component(inference, "Motor de Inferencia", "Modelo Serializado", "Recibe características (área, comuna) y devuelve el precio estimado en < 3s (RF-03).")
-    Component(etl, "Pipeline de Preprocesamiento", "Script de Pandas", "Limpia nulos, codifica y escala datos crudos asegurando cero fuga de datos (RN-02).")
-    Component(evaluator, "Evaluador de Modelos", "Validador", "Entrena el modelo y evalúa RMSE. Reemplaza en producción solo si RMSE <= 12% (RF-10, RN-01).")
+    Component(api_ml, "API REST", "FastAPI / Flask", "Endpoints de predicción.")
+    Component(inference, "Motor Inferencia", "Modelo ML", "Devuelve precio estimado.")
+    Component(etl, "Pipeline ETL", "Script Pandas", "Preprocesamiento seguro (RN-02).")
+    Component(evaluator, "Evaluador Modelos", "Validador", "Entrena y evalúa RMSE <= 12%.")
 }
 
-Container(api, "API de Negocio Backend", "Node.js/Java", "Orquestador principal")
-ContainerDb(db, "Base de Datos", "PostgreSQL", "Almacena logs y datos crudos")
+ContainerDb(db, "Base de Datos", "PostgreSQL", "Datos crudos y logs")
 
-Rel(api, api_ml, "Solicita estimación / Envía orden de reentrenamiento")
-Rel(api_ml, inference, "Consulta precio con características")
-Rel(api_ml, etl, "Inicia flujo de preprocesamiento de datos")
-Rel(etl, db, "Extrae dataset crudo generado por crawlers")
-Rel(etl, evaluator, "Envía datasets de entrenamiento y validación ya procesados")
-Rel(evaluator, db, "Guarda métricas de entrenamiento (RMSE, status)")
-Rel(evaluator, inference, "Actualiza el modelo en producción (Si pasa umbral de seguridad)")
+Rel_D(api, api_ml, "Solicita IA / Reentrena")
+Rel_D(api_ml, inference, "Consulta precio")
+Rel_D(api_ml, etl, "Inicia preprocesamiento")
+
+Rel_D(etl, db, "Extrae crudos")
+Rel_D(etl, evaluator, "Envía procesados")
+Rel_D(evaluator, db, "Guarda métricas")
+Rel_U(evaluator, inference, "Actualiza modelo")
 ```
 
 ---
