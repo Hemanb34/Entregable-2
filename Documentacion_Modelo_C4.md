@@ -1,16 +1,16 @@
-# Modelo C4: Sistema de Búsqueda y Estimación Inmobiliaria
+# Arquitectura del Sistema de Búsqueda y Estimación Inmobiliaria (Modelo C4)
 
-El **Modelo C4** es un enfoque para visualizar la arquitectura de software a través de cuatro niveles de abstracción (Contexto, Contenedores, Componentes y Código). A continuación, se detalla la arquitectura para el sistema inmobiliario, vinculando los requisitos funcionales (RF) y reglas de negocio (RN) del proyecto.
+Este documento detalla la arquitectura del sistema estructurada a través de las cuatro capas del Modelo C4. En lugar de ser un diagrama puramente técnico, ilustra cómo las reglas de negocio y los requisitos funcionales moldean el ecosistema, asegurando alta disponibilidad, calidad de datos y predicciones confiables.
 
 ---
 
-## 1. Nivel 1: Contexto (Context)
-**Objetivo:** Mostrar el panorama general. Documenta qué sistemas y qué actores interactúan con el software que estamos construyendo.
+## 1. Nivel 1: Contexto (El Ecosistema)
 
-**Elementos:**
-*   **Usuarios:** Arrendatario (busca/valida), Propietario (compara/pública) y Administrador (gestiona).
-*   **Sistema Central:** Nuestra plataforma.
-*   **Sistemas Externos:** Los portales de donde extraemos los datos.
+**Funcionamiento y Relaciones:**
+En este nivel observamos el sistema como una "caja negra" que conecta tres perfiles de usuario con el mundo exterior. Los **Arrendatarios** y **Propietarios** acceden para consumir valor (búsquedas inteligentes, comparación y estimación de precios). El **Administrador** interactúa para orquestar la salud de la plataforma. A su vez, nuestro sistema se conecta hacia afuera consumiendo datos de los **Portales Inmobiliarios Externos**.
+
+**El Porqué del Diseño (Decisiones de Negocio):**
+Nuestra plataforma no es dueña del inventario inmobiliario; su núcleo de negocio es actuar como un **agregador inteligente** que combate la desinformación. Al separar los "Portales Externos" en el diseño, evidenciamos nuestra dependencia de fuentes de terceros, lo cual justifica estructuralmente por qué es vital contar con motores robustos de extracción de datos (Crawlers).
 
 ```mermaid
 C4Context
@@ -32,15 +32,14 @@ Rel(sistema, portales, "Extrae datos de publicaciones originales", "Web Scraping
 
 ---
 
-## 2. Nivel 2: Contenedores (Containers)
-**Objetivo:** Muestra la arquitectura de alto nivel. Desglosa el "Sistema Central" en aplicaciones, bases de datos, y microservicios desplegables separadamente.
+## 2. Nivel 2: Contenedores (Arquitectura Técnica de Alto Nivel)
 
-**Elementos:**
-*   **SPA Frontend:** La interfaz visual para todos los roles.
-*   **API de Negocio:** Centraliza la lógica, los filtros rápidos (< 2s) y rutea el tráfico.
-*   **Servicio ML:** Dedicado a la inferencia de precios y cálculo del pipeline de datos pesados para no bloquear el API.
-*   **Worker Crawler:** Ejecuta la extracción (Web Scraping) en segundo plano (cada 24h).
-*   **Bases de Datos & Caché:** PostgreSQL para persistencia y Redis para manejar sesiones bloqueadas y colas.
+**Funcionamiento y Relaciones:**
+Abrimos la "caja negra" y separamos el sistema en unidades desplegables. El **Frontend** provee una única interfaz de usuario. El **Backend (API de Negocio)** centraliza la gestión de usuarios, el Analytics y las búsquedas, apoyándose en una **Base de Datos** y una **Caché (Redis)**. En paralelo, operan dos motores pesados: el **Servicio de Machine Learning (ML)** y el **Worker de Crawlers**, los cuales se comunican de forma asíncrona o bajo demanda con el Backend.
+
+**El Porqué del Diseño (Desacoplamiento):**
+*   **Aislamiento del Servicio ML y Crawlers:** El entrenamiento de IA y el Web Scraping consumen excesiva CPU y son propensos a caídas por bloqueos de red. Si compartieran el mismo servidor del Backend principal, cualquier reentrenamiento o fallo en el crawler tumbaría las búsquedas de los arrendatarios. Separarlos garantiza el requisito de responder consultas en menos de 2 segundos de forma ininterrumpida (*RNF-04* y *RNF-08*).
+*   **Inclusión de Caché:** Los requisitos dictan inhabilitar temporalmente a un admin por 30 minutos tras tres intentos fallidos (*RN-05*). Redis maneja contadores con tiempo de expiración nativo de forma ultrarrápida, evitando sobrecargar la base de datos transaccional con bloqueos efímeros.
 
 ```mermaid
 C4Container
@@ -73,20 +72,24 @@ Rel(ml, db, "Consulta datos crudos, guarda logs RMSE y modelos", "TCP")
 
 ---
 
-## 3. Nivel 3: Componentes (Components)
-**Objetivo:** Hacemos zoom dentro de un contenedor específico para visualizar cómo está estructurado su código a nivel modular (controladores, servicios, repositorios). 
+## 3. Nivel 3: Componentes (Los Engranajes Internos)
 
-A continuación, mostramos los componentes de los dos contenedores principales: la **API Backend** y el **Servicio ML**.
+En este nivel observamos cómo se estructura internamente el código de los dos contenedores que sostienen la lógica central del negocio: el **Backend** y el **Servicio ML**.
 
 ### 3.1 Componentes de la API Backend
-Desglose de la lógica de negocio central (Búsqueda, Analytics, Autenticación).
+
+**Funcionamiento y Relaciones:**
+Internamente, el Backend se divide en módulos especializados: Seguridad, Búsqueda, Analytics y Orquestación Admin. La búsqueda delega en ML la evaluación en lote para ordenar las "mejores ofertas", mientras que Analytics cruza datos de la BD para calcular los promedios del mercado.
+
+**El Porqué del Diseño (Responsabilidad Única):**
+Garantiza que la modificación de una regla de negocio no rompa otra. Si el día de mañana se cambia la fórmula para calcular el margen sugerido (+/- 5%) en el Controlador de Analytics, esto no afectará en absoluto el mecanismo de login de usuarios o la ejecución del orquestador de crawlers.
 
 ```mermaid
 C4Component
 title Nivel 3: Componentes - API de Negocio Backend
 
 Container_Boundary(api, "API de Negocio Backend") {
-    Component(auth, "Módulo de Autenticación", "Controlador de Seguridad", "Valida credenciales y gestiona bloqueos por fallos consecutivos (RF-07, RN-05).")
+    Component(auth, "Módulo de Autenticación", "Controlador", "Valida credenciales y gestiona bloqueos por fallos consecutivos (RF-07, RN-05).")
     Component(search, "Módulo de Búsqueda Inmobiliaria", "Servicio Core", "Ejecuta consultas optimizadas en DB con filtros y ordena por 'mejor oferta' (RF-02).")
     Component(analytics, "Controlador de Analytics", "Servicio Lógico", "Calcula métricas agregadas (min, max, prom) y rangos sugeridos (RF-05, RF-06).")
     Component(admin_orch, "Orquestador de Admin", "Servicio de Integración", "Recibe órdenes manuales o cronificadas para enviar tareas a ML o Crawlers (RF-08).")
@@ -112,17 +115,22 @@ Rel(search, ml, "Solicita estimaciones en lote para ordenar resultados")
 ```
 
 ### 3.2 Componentes del Servicio Machine Learning
-Desglose del contenedor predictivo que valida los requisitos de confiabilidad de la Inteligencia Artificial (RMSE <= 12%).
+
+**Funcionamiento y Relaciones:**
+Se descompone en un Pipeline de Preprocesamiento (ETL), un Evaluador de Modelos y el Motor de Inferencia (el modelo en producción que devuelve los precios). 
+
+**El Porqué del Diseño (Control de Calidad de IA):**
+El **Evaluador de Modelos** funciona como un estricto guardia de seguridad. Toma los datos del ETL y reentrena un modelo candidato; sin embargo, no lo pasa a producción (Inferencia) a menos que su margen de error (RMSE) sea inferior o igual al 12% (*RN-01*). Esta separación arquitectónica protege la plataforma impidiendo despliegues automatizados que puedan sugerir precios irracionales a los propietarios.
 
 ```mermaid
 C4Component
 title Nivel 3: Componentes - Servicio Machine Learning
 
 Container_Boundary(ml, "Servicio Machine Learning") {
-    Component(api_ml, "Controlador API REST", "FastAPI / Flask Router", "Expone endpoints para predicción en tiempo real y recibe webhooks para iniciar entrenamiento.")
-    Component(inference, "Motor de Inferencia", "Modelo ML en Memoria", "Recibe características (área, comuna) y devuelve el precio estimado en < 3s (RF-03).")
-    Component(etl, "Pipeline de Preprocesamiento", "Script de Datos (Pandas)", "Limpia nulos, codifica y escala datos crudos asegurando cero fuga de datos (RN-02, RF-09).")
-    Component(evaluator, "Evaluador de Modelos", "Módulo de Validación", "Entrena el modelo y evalúa RMSE. Reemplaza en producción solo si RMSE <= 12% (RF-10, RN-01).")
+    Component(api_ml, "Controlador API REST", "FastAPI / Flask", "Expone endpoints para predicción en tiempo real y recibe webhooks de reentrenamiento.")
+    Component(inference, "Motor de Inferencia", "Modelo Serializado", "Recibe características (área, comuna) y devuelve el precio estimado en < 3s (RF-03).")
+    Component(etl, "Pipeline de Preprocesamiento", "Script de Pandas", "Limpia nulos, codifica y escala datos crudos asegurando cero fuga de datos (RN-02).")
+    Component(evaluator, "Evaluador de Modelos", "Validador", "Entrena el modelo y evalúa RMSE. Reemplaza en producción solo si RMSE <= 12% (RF-10, RN-01).")
 }
 
 Container(api, "API de Negocio Backend", "Node.js/Java", "Orquestador principal")
@@ -134,16 +142,16 @@ Rel(api_ml, etl, "Inicia flujo de preprocesamiento de datos")
 Rel(etl, db, "Extrae dataset crudo generado por crawlers")
 Rel(etl, evaluator, "Envía datasets de entrenamiento y validación ya procesados")
 Rel(evaluator, db, "Guarda métricas de entrenamiento (RMSE, status)")
-Rel(evaluator, inference, "Actualiza el modelo serializado en producción (Si pasa umbral)")
+Rel(evaluator, inference, "Actualiza el modelo en producción (Si pasa umbral de seguridad)")
 ```
 
 ---
 
-## 4. Nivel 4: Código (Code)
-**Objetivo:** Detallar el diseño interno (Diagramas de Clases UML, Diagramas Entidad-Relación o especificaciones de algoritmos) de un componente individual.
+## 4. Nivel 4: Código (Detalle de Reglas Estrictas)
 
-**Nota para diagramar:** 
-En el modelo C4, este nivel suele omitirse ya que cambia con mucha frecuencia y puede generar mantenimiento excesivo. Generalmente, este nivel se auto-genera desde el código fuente mediante herramientas IDE. 
-Sin embargo, para este proyecto en particular, el Nivel 4 sería ideal para documentar:
-1.  **Diagrama Entidad-Relación (ERD):** Para mostrar la tabla `Inmuebles` y cómo se vincula obligatoriamente el campo `url_original` para cumplir la regla **RN-06**.
-2.  **Algoritmo del Evaluador RMSE:** Un diagrama de flujo detallando el paso a paso de la división de datos, entrenamiento y la condición final `if RMSE <= 12% then deploy else abort` correspondiente a la regla **RN-01**.
+**Funcionamiento y Relaciones:**
+Es el nivel más profundo donde residen los esquemas de bases de datos y algoritmos específicos. En lugar de diagramarlo, se estructura en políticas duras a nivel de código fuente.
+
+**El Porqué del Diseño (Integridad de Datos):**
+*   **Restricciones de Tabla:** A nivel de esquema relacional, la tabla de `Inmuebles` rechaza cualquier registro insertado por el Crawler que no contenga el atributo `url_original` (*RN-06*). Esto traduce un requerimiento de Experiencia de Usuario (dar acceso al post original) en una validación estricta de base de datos.
+*   **Aislamiento Estadístico:** En el código del componente ETL, la estandarización numérica y codificación se computan estrictamente sobre el dataset de entrenamiento y solo se *aplican* (transform) sobre validación y nuevas entradas (*RN-02*). Esto asegura matemáticamente que no exista fuga de información que adultere los resultados.
