@@ -155,11 +155,49 @@ Rel_U(evaluator, inference, "Actualiza modelo")
 
 ---
 
-## 4. Nivel 4: Código (Detalle de Reglas Estrictas)
+## 4. Nivel 4: Código (Detalle de Clases y Reglas Estrictas)
 
 **Funcionamiento y Relaciones:**
-Es el nivel más profundo donde residen los esquemas de bases de datos y algoritmos específicos. En lugar de diagramarlo, se estructura en políticas duras a nivel de código fuente.
+Este es el nivel más profundo (estructurado habitualmente mediante diagramas de clases UML o flujos de código). Aquí ilustramos la estructura interna de las clases responsables de la integridad del sistema: la entidad física del `Inmueble` y el ciclo de vida seguro del `EvaluadorModelo`.
 
-**El Porqué del Diseño (Integridad de Datos):**
-*   **Restricciones de Tabla:** A nivel de esquema relacional, la tabla de `Inmuebles` rechaza cualquier registro insertado por el Crawler que no contenga el atributo `url_original` (*RN-06*). Esto traduce un requerimiento de Experiencia de Usuario (dar acceso al post original) en una validación estricta de base de datos.
-*   **Aislamiento Estadístico:** En el código del componente ETL, la estandarización numérica y codificación se computan estrictamente sobre el dataset de entrenamiento y solo se *aplican* (transform) sobre validación y nuevas entradas (*RN-02*). Esto asegura matemáticamente que no exista fuga de información que adultere los resultados.
+**El Porqué del Diseño (Integridad de Datos en Código):**
+*   **Restricciones de Entidad:** La clase `Inmueble` requiere obligatoriamente el atributo `url_original`. El método `validarURLOriginal()` previene que el sistema procese propiedades inalcanzables (*RN-06*).
+*   **Control de Despliegue en Código:** La clase `EvaluadorModelo` encapsula de forma privada el límite estricto de error (`UMBRAL_RMSE_MAX = 0.12`). Su método `promoverAProduccion()` evalúa esta condición matemáticamente antes de instanciar un nuevo `ModeloPredictivo`, lo que bloquea despliegues deficientes desde la propia lógica orientada a objetos (*RN-01*).
+
+```mermaid
+classDiagram
+    direction TD
+
+    class Inmueble {
+      +String id
+      +Float precio_publicado
+      +Float area_m2
+      +Int estrato
+      +String comuna
+      +String url_original
+      +validarURLOriginal() bool
+    }
+
+    class PipelineETL {
+      +separarDataset(datos)
+      +aplicarEscaladores(datos_entrenamiento)
+      +transformar(datos_validacion)
+    }
+
+    class EvaluadorModelo {
+      -Float UMBRAL_RMSE_MAX = 0.12
+      +entrenar(Dataset datos_procesados)
+      +calcularRMSE() Float
+      +promoverAProduccion() bool
+    }
+
+    class ModeloPredictivo {
+      +String version
+      +Float rmse_validacion
+      +predecir(Inmueble i) Float
+    }
+
+    PipelineETL ..> EvaluadorModelo : Inyecta datos procesados
+    EvaluadorModelo --> ModeloPredictivo : Instancia si RMSE <= 12%
+    ModeloPredictivo ..> Inmueble : Estima precio
+```
