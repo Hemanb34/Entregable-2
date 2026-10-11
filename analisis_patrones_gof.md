@@ -23,7 +23,7 @@ Instrumento de apoyo para justificar patrones GoF no repetidos dentro del alcanc
   Desarrollar una plataforma centralizada y eficiente que unifique la oferta inmobiliaria de Medellín, proporcione estimaciones objetivas de precios mediante Machine Learning, calcule márgenes sugeridos de publicación competitivos y provea una gestión administrativa robusta para la extracción automatizada de datos y el reentrenamiento de modelos sin degradar el servicio.
 
 - **Descripción del producto propuesto:**  
-  Una solución web construida sobre FastAPI y Python (`buscasa`) que integra crawlers asíncronos para extraer publicaciones de múltiples portales, un pipeline riguroso de preparación y entrenamiento de modelos predictivos supervisados, un motor de estimación y cálculo de márgenes comerciales para propietarios y buscadores, y un módulo de administración seguro para accionar los flujos clave del ecosistema de datos.
+  Una solución web construida sobre FastAPI y Python (`buscasa`) que integra crawlers asíncronos para extraer publicaciones en memoria desde múltiples portales preparándolas para su inserción directa en la base de datos relacional, un pipeline riguroso de preparación y entrenamiento de modelos predictivos supervisados, un motor de estimación y cálculo de márgenes comerciales para propietarios y buscadores, y un módulo de administración seguro para accionar los flujos clave del ecosistema de datos.
 
 ---
 
@@ -33,11 +33,11 @@ Instrumento de apoyo para justificar patrones GoF no repetidos dentro del alcanc
 
 | ID | Funcionalidad del MVP | Prioridad | Justificación |
 | :--- | :--- | :--- | :--- |
-| **F1** | **Orquestar extracción de datos** | **Alta** | Constituye el insumo base del ecosistema (RF-08). Permite la ejecución manual o periódica (RNF-03) de crawlers asíncronos hacia portales externos configurados, garantizando la escalabilidad para incorporar nuevas fuentes sin rediseñar la arquitectura (RNF-07). Sin esta ingesta, no existe catálogo ni datos para entrenar el modelo. |
+| **F1** | **Orquestar extracción de datos** | **Alta** | Constituye el insumo base del ecosistema (RF-08). Permite la ejecución manual o periódica (RNF-03) de crawlers asíncronos hacia portales externos configurados, garantizando la escalabilidad para incorporar nuevas fuentes sin rediseñar la arquitectura (RNF-07). Extrae los datos en memoria para alimentar la base de datos relacional y los modelos de reentrenamiento. |
 | **F2** | **Preparar los datos** | **Alta** | Garantiza la calidad metodológica e integridad del dataset (RF-09). Aplica la regla de negocio **RN-06** (descarte estricto de inmuebles sin URL original) y ejecuta la codificación y escalado numérico calculados estrictamente sobre el conjunto de entrenamiento para prohibir la fuga de datos (**RN-02**). |
 | **F3** | **Reentrenar el modelo** | **Alta** | Mantiene actualizado el motor predictivo frente a la dinámica del mercado (RF-10). Ejecuta el entrenamiento en segundo plano sin bloquear las consultas de los usuarios (**RNF-08**) y aplica la compuerta de aceptación obligatoria: el modelo solo se promueve a producción si su RMSE no supera el umbral del 12% - 15% (**RN-01**, **RNF-02**). |
 | **F4** | **Obtener margen sugerido** | **Alta** | Entrega el valor analítico final procesable al propietario para la toma de decisiones comerciales (RF-06). Calcula el rango sugerido de publicación (-5% liquidez rápida / +5% máxima rentabilidad) sobre la estimación base (**RN-04**) y permite seleccionar dinámicamente estrategias de precios validadas frente a la competencia (RF-05). |
-| **F5** | **Consolidar catálogo** | Media | Unifica la oferta de múltiples portales en una vista única y centralizada (RF-01, RF-12). Depende directamente de que la extracción (F1) y la normalización/preparación (F2) hayan transformado los datos a una estructura estándar. |
+| **F5** | **Consolidar catálogo** | Media | Unifica la oferta de múltiples portales en una vista única y centralizada en base de datos (RF-01, RF-12). Depende directamente de que la extracción (F1) y la normalización/preparación (F2) hayan transformado los datos a una estructura estándar canónica. |
 | **F6** | **Estimar precio de una vivienda** | Media | Permite a arrendatarios y propietarios ingresar características estructurales y geográficas para obtener una estimación objetiva de precio (RF-03) y consultar inmuebles competidores similares según los 4 criterios de **RN-03** (RF-04). Depende de que el modelo predictivo (F3) esté activo en producción. |
 | **F7** | **Autenticarse** | Media | Protege y restringe el acceso al panel de control de administración mediante credenciales exclusivas con JWT (RF-07, RNF-01), implementando el bloqueo temporal por 30 minutos tras 3 intentos fallidos (**RN-05**). |
 
@@ -49,7 +49,7 @@ Instrumento de apoyo para justificar patrones GoF no repetidos dentro del alcanc
 - Los patrones deben ser viables dentro del tiempo y alcance del MVP, integrándose naturalmente con la estructura del proyecto en `C:\Users\heman\inmobiliaria-fastapi`.
 
 ### 3.3 Funcionalidades fuera del MVP
-- **Monitoreo avanzado con dashboard gráfico de métricas en tiempo real:** La visualización interactiva de curvas históricas de RMSE y volumetría gráfica de logs (RF-11) queda pospuesta para una fase posterior al MVP; en el MVP, la trazabilidad técnica se resuelve a nivel de persistencia de base de datos y logs de auditoría.
+- **Monitoreo avanzado con dashboard gráfico de métricas en tiempo real:** La visualización interactiva de curvas históricas de RMSE y volumetría gráfica de logs (RF-11) queda pospuesta para una fase posterior al MVP; en el MVP, la trazabilidad técnica se resuelve a nivel de base de datos relacional y logs de auditoría.
 - **Pasarelas de pagos y transacciones en línea:** El sistema no procesará depósitos, comisiones ni cobros de publicación.
 - **Mensajería y chat directo en tiempo real:** La comunicación entre arrendatario y anunciante se realiza fuera de la plataforma mediante la redirección al portal de origen ("Ir a la Oferta", RF-12).
 - **Firma digital y gestión contractual de arrendamientos:** No se generan contratos de arrendamiento ni pólizas jurídicas.
@@ -65,8 +65,8 @@ Instrumento de apoyo para justificar patrones GoF no repetidos dentro del alcanc
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | Instanciar crawlers dinámicamente según el portal configurado sin acoplar el orquestador | Orquestación de Crawlers (F1) | Creacional | **Factory Method** | **Sí** | **No** |
 | Familias complejas de objetos de scraping (crawlers + parsers + downloaders) | Orquestación de Crawlers (F1) | Creacional | Abstract Factory | No (Sobreingeniería) | Sí (con Factory Method) |
-| Normalizar respuestas crudas heterogéneas (JSON/HTML) de portales externos al esquema estándar del catálogo | Consolidación de Catálogo (F5) | Estructural | **Adapter** | **Sí** | **No** |
-| Simplificar el consumo de los 4 subsistemas (ML, búsqueda de similares, estadísticas de mercado y márgenes) hacia la API | Estimación de Vivienda (F6) | Estructural | **Facade** | **Sí** | **No** |
+| Normalizar respuestas crudas heterogéneas (JSON/HTML) de portales externos al esquema canónico de base de datos | Consolidación de Catálogo (F5) | Estructural | **Adapter** | **Sí** | **No** |
+| Simplificar el consumo de los subsistemas (ML, búsqueda de similares y estadísticas) hacia la API | Estimación de Vivienda (F6) | Estructural | **Facade** | **Sí** | **No** |
 | Envolver solicitudes HTTP con mecanismos de reintentos o rotación de proxies | Red / Scraping (F1) | Estructural | Decorator | No (Fuera de MVP) | No |
 | Fijar el esqueleto algorítmico obligatorio del pipeline de datos y ML garantizando no fuga de datos (RN-02) y umbral RMSE (RN-01) | Preparar Datos y Reentrenar Modelo (F2, F3) | Comportamiento | **Template Method** | **Sí** | **No** |
 | Intercambiar dinámicamente la familia de algoritmos de cálculo de margen según el objetivo comercial del propietario | Obtener Margen Sugerido (F4) | Comportamiento | **Strategy** | **Sí** | **No** |
@@ -187,7 +187,7 @@ Cada portal inmobiliario externo entrega sus publicaciones en estructuras de dat
 - *Finca Raíz* entrega un payload con estructuras anidadas como `attributes.area`, `price`, `locations`.
 - *Cien Cuadras* extrae datos HTML o JSON con llaves como `superficie_construida` y cadenas de texto con caracteres de moneda y símbolos (`"$ 2.500.000"`).
 
-El catálogo consolidado del MVP (RF-01) y la base de datos requieren un modelo canónico uniforme (`PropertyCreate`). Además, la regla de negocio crítica **RN-06** exige descartar obligatoriamente cualquier publicación que carezca de la URL original de la publicación. Sin un adaptador, los scrapers o el orquestador mezclarían lógica de red con código complejo de parseo y saneamiento de datos.
+El catálogo consolidado del MVP (RF-01) y la base de datos relacional requieren un modelo canónico uniforme (`PropertyCreate`). Además, la regla de negocio crítica **RN-06** exige descartar obligatoriamente cualquier publicación que carezca de la URL original de la publicación. Sin un adaptador, los scrapers o el orquestador mezclarían lógica de red con código complejo de parseo y saneamiento de datos.
 
 #### 5.3 Evidencias del problema en el proyecto
 - [X] Alto acoplamiento
@@ -202,7 +202,7 @@ El catálogo consolidado del MVP (RF-01) y la base de datos requieren un modelo 
 
 #### 5.4 Relación con el MVP
 - **¿Por qué este problema sí debe resolverse en el MVP y no en una versión futura?**  
-  Porque "Consolidar catálogo" (RF-01, F5) y el filtro de calidad **RN-06** son indispensables para que los inmuebles puedan consultarse y usarse en los modelos predictivos del MVP.
+  Porque "Consolidar catálogo" (RF-01, F5) y el filtro de calidad **RN-06** son indispensables para que los inmuebles puedan persistirse e incorporarse limpiamente en la base de datos para los modelos predictivos del MVP.
 - **¿Qué riesgo habría si no se aplica este patrón en el MVP?**  
   Inconsistencia severa en la base de datos (valores nulos o tipos erróneos), violación inadvertida de RN-06 e imposibilidad de reutilizar el código de extracción con nuevos portales.
 - **¿La implementación del patrón es razonable para el tiempo y complejidad del MVP?** [X] Sí &nbsp;&nbsp; [ ] No  
@@ -238,7 +238,7 @@ El catálogo consolidado del MVP (RF-01) y la base de datos requieren un modelo 
 | **Client** (Cliente) | `buscasa.buscasa.crawlers.base.AsyncCrawler` / `crawler_service` |
 
 **Descripción breve de cómo funcionará en el sistema:**  
-Al finalizar la recolección de un registro crudo, el crawler invoca `adapter.adapt(item_crudo)`. Si el registro carece de URL original, el adaptador retorna `None` (aplicando RN-06). En caso contrario, retorna una instancia tipada de `PropertyCreate` lista para persistirse en la base de datos consolidada.
+Al finalizar la recolección de un registro crudo en memoria, el crawler invoca `adapter.adapt(item_crudo)`. Si el registro carece de URL original, el adaptador retorna `None` (aplicando RN-06). En caso contrario, retorna una instancia tipada de `PropertyCreate` lista para ser insertada directamente en la base de datos relacional.
 
 ```python
 # buscasa/buscasa/crawlers/adapters/property_adapter.py
@@ -274,7 +274,7 @@ class MetrocuadradoAdapter(PropertyDataAdapter):
 
 #### 5.9 Conclusión de decisión
 - **Decisión final sobre este patrón:** [X] Se aprueba &nbsp;&nbsp; [ ] Se descarta  
-- **Justificación final:** Resuelve de forma limpia la heterogeneidad de los portales externos y blinda el cumplimiento forzoso de la regla de negocio RN-06.
+- **Justificación final:** Resuelve de forma limpia la heterogeneidad de los portales externos y blinda el cumplimiento forzoso de la regla de negocio RN-06 para poblar la base de datos.
 
 ---
 
@@ -287,13 +287,12 @@ class MetrocuadradoAdapter(PropertyDataAdapter):
   Módulo de Estimación y Análisis Comparativo de Viviendas (`app/services/valuation_facade.py` y `app/api/v1/endpoints/properties.py`).
 
 #### 5.2 Problema de diseño que se quiere resolver
-La funcionalidad de "Estimar precio de una vivienda" (RU-02, RF-03 a RF-06) exige coordinar múltiples subsistemas técnicos independientes para construir una respuesta integral de cara al usuario:
+La funcionalidad de "Estimar precio de una vivienda" (RU-02, RF-03 a RF-05) exige coordinar múltiples subsistemas técnicos independientes para construir una respuesta integral de cara al usuario:
 1. `ModelInferenceService`: Carga el modelo predictivo activo en producción y genera la estimación base de la vivienda según sus variables (RF-03).
-2. `CompetitiveSearchService`: Consulta la base de datos para filtrar propiedades competidoras que cumplan estrictamente los 4 criterios de similitud de **RN-03** (misma comuna, mismo estrato, mismo tipo de inmueble y variación de área $\le 15\%$) (RF-04).
-3. `CompetitiveMetricsService`: Agrega los precios de los competidores obtenidos para calcular precio mínimo, promedio y máximo (RF-05).
-4. `PricingMarginService`: Calcula el rango de publicación sugerido aplicando el margen de negocio (**RN-04**, RF-06).
+2. `CompetitiveSearchService`: Consulta la base de datos relacional para filtrar propiedades competidoras que cumplan estrictamente los 4 criterios de similitud de **RN-03** (misma comuna, mismo estrato, mismo tipo de inmueble y variación de área $\le 15\%$) (RF-04).
+3. `CompetitiveMetricsService`: Agrega los precios de los competidores obtenidos en base de datos para calcular precio mínimo, promedio y máximo (RF-05).
 
-Si los controladores de FastAPI (`app/api/v1/endpoints/properties.py`) invocaran directamente a cada uno de estos 4 subsistemas, la capa de endpoints quedaría fuertemente acoplada a la coreografía interna de los cálculos, generando código espagueti, duplicando lógica y dificultando el cumplimiento del tiempo de respuesta máximo de 3 segundos (**RNF-05**).
+Si los controladores de FastAPI (`app/api/v1/endpoints/properties.py`) invocaran directamente a cada uno de estos subsistemas, la capa de endpoints quedaría fuertemente acoplada a la coreografía interna de los cálculos, generando código espagueti, duplicando lógica y dificultando el cumplimiento del tiempo de respuesta máximo de 3 segundos (**RNF-05**).
 
 #### 5.3 Evidencias del problema en el proyecto
 - [X] Alto acoplamiento
@@ -304,7 +303,7 @@ Si los controladores de FastAPI (`app/api/v1/endpoints/properties.py`) invocaran
 - [ ] Necesidad de ampliar funcionalidad sin modificar la clase base
 - [ ] Interfaz incompatible
 - **Explicación contextualizada en el proyecto:**  
-  En `app/services/property_service.py` actualmente solo existe una función parcial para consultar métricas en base de datos (`calcular_metricas_competitivas`). Al integrar la inferencia del modelo predictivo (`app/models/predictive_model.py`) y las reglas RN-03 y RN-04, la API requeriría un controlador sobredimensionado si no se introduce una fachada unificadora.
+  En `app/services/property_service.py` actualmente solo existe una función parcial para consultar métricas en base de datos (`calcular_metricas_competitivas`). Al integrar la inferencia del modelo predictivo (`app/models/predictive_model.py`) y las reglas RN-03, la API requeriría un controlador sobredimensionado si no se introduce una fachada unificadora.
 
 #### 5.4 Relación con el MVP
 - **¿Por qué este problema sí debe resolverse en el MVP y no en una versión futura?**  
@@ -320,7 +319,7 @@ Si los controladores de FastAPI (`app/api/v1/endpoints/properties.py`) invocaran
 - **¿Qué se desea desacoplar?**  
   La capa de endpoints de FastAPI de la complejidad algorítmica y de consultas relacionales de los subsistemas de estimación.
 - **¿Qué ventaja concreta ofrece este patrón en este proyecto?**  
-  Proporciona una interfaz unificada: `facade.generar_analisis_integral(inmueble_data, db)` que centraliza la orquestación y garantiza que las reglas RN-03 y RN-04 se apliquen en el orden estricto.
+  Proporciona una interfaz unificada: `facade.generar_analisis_integral(inmueble_data, db)` que centraliza la orquestación y garantiza que las reglas de negocio se apliquen en el orden estricto.
 - **¿Qué principio de diseño ayuda a cumplir?**  
   [X] Responsabilidad Única &nbsp;&nbsp; [X] Segregación de Interfaces &nbsp;&nbsp; [ ] Abierto/Cerrado  
   *Justificación técnica:* Mantiene los routers de FastAPI enfocados exclusivamente en la gestión de peticiones y respuestas HTTP (SRP), protegiendo al cliente de la complejidad interna del subsistema.
@@ -339,11 +338,11 @@ Si los controladores de FastAPI (`app/api/v1/endpoints/properties.py`) invocaran
 | Rol del patrón | Clase/componente del proyecto |
 | :--- | :--- |
 | **Facade** (Fachada) | `app.services.valuation_facade.PropertyValuationFacade` |
-| **Subsystem Classes** (Subsistemas) | `ModelInferenceService`, `PropertySearchService`, `CompetitiveMetricsService`, `PricingMarginService` |
+| **Subsystem Classes** (Subsistemas) | `ModelInferenceService`, `PropertySearchService`, `CompetitiveMetricsService` |
 | **Client** (Cliente) | Endpoint FastAPI (`app/api/v1/endpoints/properties.py`) |
 
 **Descripción breve de cómo funcionará en el sistema:**  
-El endpoint HTTP de FastAPI recibe los datos del inmueble y llama a `PropertyValuationFacade.generar_analisis_integral()`. La fachada delega en orden: (1) invoca la inferencia de ML, (2) ejecuta la búsqueda estricta de competidores por RN-03, (3) extrae métricas de mercado y (4) calcula márgenes sugeridos por RN-04, retornando la respuesta consolidada en menos de 3 segundos (**RNF-05**).
+El endpoint HTTP de FastAPI recibe los datos del inmueble y llama a `PropertyValuationFacade.generar_analisis_integral()`. La fachada delega en orden: (1) invoca la inferencia de ML para obtener el precio base, (2) ejecuta la búsqueda en base de datos de competidores bajo RN-03, y (3) extrae métricas de mercado (mínimo, promedio, máximo), retornando la respuesta en menos de 3 segundos (**RNF-05**).
 
 ```python
 # app/services/valuation_facade.py
@@ -351,11 +350,10 @@ from sqlalchemy.orm import Session
 from app.schemas.property import PropertyEstimateRequest, ValuationResponse
 
 class PropertyValuationFacade:
-    def __init__(self, ml_service, search_service, metrics_service, margin_service):
+    def __init__(self, ml_service, search_service, metrics_service):
         self.ml_service = ml_service
         self.search_service = search_service
         self.metrics_service = metrics_service
-        self.margin_service = margin_service
 
     def generar_analisis_integral(self, req: PropertyEstimateRequest, db: Session) -> ValuationResponse:
         # 1. Estimación Base con Modelo ML (RF-03)
@@ -370,13 +368,9 @@ class PropertyValuationFacade:
         # 3. Métricas Estadísticas del Mercado (RF-05)
         metricas_mercado = self.metrics_service.calcular(competidores)
         
-        # 4. Margen sugerido de publicación según RN-04 (RF-06)
-        margen = self.margin_service.calcular_rango(precio_estimado)
-        
         return ValuationResponse(
             precio_estimado=precio_estimado,
-            metricas_competitivas=metricas_mercado,
-            rango_sugerido=margen
+            metricas_competitivas=metricas_mercado
         )
 ```
 
@@ -396,7 +390,7 @@ class PropertyValuationFacade:
 
 #### 5.2 Problema de diseño que se quiere resolver
 El ciclo de preprocesamiento de datos y reentrenamiento del modelo predictivo (Prioridades Altas F2 y F3) exige una secuencia algorítmica obligatoria e invariable impuesta por reglas de negocio críticas:
-1. Cargar el dataset consolidado de la base de datos.
+1. Cargar el dataset consolidado desde la base de datos relacional.
 2. Limpiar y filtrar datos garantizando **RN-06** (descartar registros sin enlace original).
 3. Particionar estrictamente los datos en entrenamiento (80%) y validación (20%).
 4. **Cumplir RN-02**: Calcular y ajustar los parámetros de transformación (escalado numérico y codificación One-Hot) **estrictamente sobre el conjunto de entrenamiento** y luego aplicarlos a validación, prohibiendo cualquier cruce de información que genere fuga de datos (*data leakage*).
@@ -455,7 +449,7 @@ Si cada algoritmo o experimentación implementa su propio script libremente, un 
 | **Primitive Operations** (Operaciones Primitivas) | `_limpiar_datos()`, `_particionar_y_escalar_sin_fuga()`, `_entrenar_modelo()`, `_evaluar_rmse()` |
 
 **Descripción breve de cómo funcionará en el sistema:**  
-Al accionar el reentrenamiento manual o programado, se invoca `pipeline.ejecutar_pipeline_completo()`. La superclase ejecuta en orden riguroso la limpieza, partición y escalado exclusivo sobre el 80% (RN-02), delega en la subclase concreta el ajuste matemático, evalúa el RMSE y valida RN-01 antes de marcar `en_produccion = True` en la base de datos.
+Al accionar el reentrenamiento manual o programado, se invoca `pipeline.ejecutar_pipeline_completo()`. La superclase ejecuta en orden riguroso la limpieza, partición y escalado exclusivo sobre el 80% (RN-02), delega en la subclase concreta el ajuste matemático, evalúa el RMSE y valida RN-01 antes de marcar `en_produccion = True` en la base de datos relacional.
 
 ```python
 # app/services/training_pipeline.py
@@ -635,8 +629,8 @@ class PricingMarginCalculator:
 | Nº | Patrón GoF | Categoría | Módulo / Funcionalidad | Problema que resuelve | Justificación en el MVP | ¿Se repite? |
 | :-: | :--- | :--- | :--- | :--- | :--- | :-: |
 | **1** | **Factory Method** | Creacional | Orquestación de Crawlers / Ingesta (`buscasa`, `crawler_service`) | Acoplamiento a scrapers específicos y dificultad para añadir nuevos portales sin tocar código existente. | Resuelve **RNF-07** permitiendo incorporar nuevos portales mediante configuración en la funcionalidad de alta prioridad F1. | **No** |
-| **2** | **Adapter** | Estructural | Normalización de Catálogo (`adapters`, `app/schemas/property`) | Respuestas crudas incompatibles (JSON/HTML heterogéneos) entre Metrocuadrado, Finca Raíz y Cien Cuadras. | Garantiza la regla **RN-06** (URL original obligatoria) y transforma los datos externos al esquema estándar del catálogo consolidado. | **No** |
-| **3** | **Facade** | Estructural | Estimación y Análisis de Vivienda (`valuation_facade`, `endpoints`) | Complejidad de coordinar 4 subsistemas (ML, búsqueda de similares, estadísticas y margen) desde la API. | Evita controladores sobredimensionados en FastAPI, asegura las reglas **RN-03** y **RN-04**, y cumple con el tiempo de respuesta $\le 3\text{s}$ (**RNF-05**). | **No** |
+| **2** | **Adapter** | Estructural | Normalización de Catálogo (`adapters`, `app/schemas/property`) | Respuestas crudas incompatibles (JSON/HTML heterogéneos) entre Metrocuadrado, Finca Raíz y Cien Cuadras. | Garantiza la regla **RN-06** (URL original obligatoria) y transforma los datos externos al esquema canónico para la base de datos relacional. | **No** |
+| **3** | **Facade** | Estructural | Estimación y Análisis de Vivienda (`valuation_facade`, `endpoints`) | Complejidad de coordinar los subsistemas (ML, búsqueda de similares y estadísticas) desde la API. | Evita controladores sobredimensionados en FastAPI, asegura la regla **RN-03**, y cumple con el tiempo de respuesta $\le 3\text{s}$ (**RNF-05**). | **No** |
 | **4** | **Template Method** | Comportamiento | Preparación de Datos y Reentrenamiento (`training_pipeline`) | Riesgo de alterar el orden del flujo de ML, generar fuga de datos (*data leakage*) o saltarse el umbral de aceptación RMSE. | Garantiza el cumplimiento forzoso de **RN-01** (umbral RMSE) y **RN-02** (preprocesamiento aislado sobre train) en las funcionalidades de alta prioridad F2 y F3. | **No** |
 | **5** | **Strategy** | Comportamiento | Obtención de Margen Sugerido (`pricing_strategies`) | Rigidez y acoplamiento en el cálculo de rangos de publicación y objetivos comerciales para propietarios. | Permite intercambiar dinámicamente las estrategias de liquidez vs rentabilidad (**RN-04**) en la funcionalidad de alta prioridad F4 sin violar OCP. | **No** |
 
@@ -659,7 +653,7 @@ class PricingMarginCalculator:
 
 La selección de estos cinco patrones GoF conforma una **arquitectura en capas desacoplada, extensible y altamente mantenible**, diseñada a la medida de los desafíos de un sistema inmobiliario impulsado por datos y Machine Learning:
 
-1. En la **capa de ingestión**, el binomio **Factory Method + Adapter** resuelve integralmente la heterogeneidad de fuentes externas: permite incorporar nuevos portales mediante configuración sin modificar el orquestador (**RNF-07**) y garantiza que cualquier payload de scraping sea normalizado y validado bajo la regla de negocio **RN-06** antes de ingresar al catálogo consolidado.
+1. En la **capa de ingestión**, el binomio **Factory Method + Adapter** resuelve integralmente la heterogeneidad de fuentes externas: permite incorporar nuevos portales mediante configuración sin modificar el orquestador (**RNF-07**) y garantiza que cualquier payload de scraping sea normalizado y validado bajo la regla de negocio **RN-06** antes de ingresar al catálogo consolidado en la base de datos relacional.
 2. En la **capa de procesamiento analítico y MLOps**, el patrón **Template Method** actúa como un blindaje de calidad algorítmica: estandariza el flujo de reentrenamiento, elimina cualquier riesgo de fuga de datos (**RN-02**) y fuerza la evaluación estricta del criterio de aceptación por RMSE (**RN-01**, **RNF-02**), permitiendo que el sistema evolucione a nuevos estimadores sin comprometer la confiabilidad en producción.
 3. En la **capa de presentación y servicios de dominio**, el patrón **Facade** simplifica el consumo de múltiples subsistemas complejos (inferencia predictiva, filtrado estricto de competidores por **RN-03** y cálculo de métricas), ofreciendo a los controladores de FastAPI una interfaz limpia, cohesiva y de respuesta rápida (**RNF-05**).
 4. En la **capa de políticas comerciales**, el patrón **Strategy** desacopla las fórmulas de cálculo del margen sugerido (**RN-04**), permitiendo que los propietarios evalúen de forma independiente escenarios de liquidez rápida, máxima rentabilidad o balance de mercado sin modificar el núcleo del servicio de tasación.
