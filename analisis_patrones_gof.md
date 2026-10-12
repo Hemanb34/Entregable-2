@@ -49,13 +49,17 @@ Instrumento de apoyo para justificar patrones GoF no repetidos dentro del alcanc
 - Los patrones deben ser viables dentro del tiempo y alcance del MVP, integrándose naturalmente con la estructura del proyecto en `C:\Users\heman\inmobiliaria-fastapi`.
 
 ### 3.3 Funcionalidades fuera del MVP
-- **Monitoreo avanzado con dashboard gráfico de métricas en tiempo real:** La visualización interactiva de curvas históricas de RMSE y volumetría gráfica de logs (RF-11) queda pospuesta para una fase posterior al MVP; en el MVP, la trazabilidad técnica se resuelve a nivel de base de datos relacional y logs de auditoría.
-- **Pasarelas de pagos y transacciones en línea:** El sistema no procesará depósitos, comisiones ni cobros de publicación.
-- **Mensajería y chat directo en tiempo real:** La comunicación entre arrendatario y anunciante se realiza fuera de la plataforma mediante la redirección al portal de origen ("Ir a la Oferta", RF-12).
-- **Firma digital y gestión contractual de arrendamientos:** No se generan contratos de arrendamiento ni pólizas jurídicas.
-- **Autenticación social multicanal:** No se implementará inicio de sesión con Google, Facebook o Apple; se mantiene autenticación segura y exclusiva de administrador con OAuth2/JWT.
-- **Modelos de visión artificial (Computer Vision):** No se procesarán las fotografías de los inmuebles para calcular el precio.
-- **Cobertura geográfica fuera del Valle de Aburrá:** El sistema opera exclusivamente para el mercado inmobiliario de Medellín y municipios aledaños.
+Corresponden a los requisitos funcionales del modelo verbal que no forman parte del alcance del MVP y quedan postergados para una entrega futura:
+
+**Ordenar por mejor oferta**
+
+**Ver detalle y salir a la fuente**
+
+**Comparar con el sector**
+
+**Ver contexto del mercado**
+
+**Monitorear el sistema**
 
 ---
 
