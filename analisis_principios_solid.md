@@ -8,7 +8,7 @@ Instrumento de apoyo para justificar los principios SOLID dentro del alcance de 
 
 - **Lenguaje / Framework:** Python 3.14 / FastAPI / SQLAlchemy / HTTPX / Scrapy (`buscasa`)
 - **Tipo de análisis:** Análisis de diseño arquitectónico y evolución de código hacia el MVP
-- **Contexto:** Sistema de Búsqueda y Estimación Inmobiliaria (Medellín). Evaluación de la evolución técnica entre la **Primera Entrega** (Modelo Verbal y prototipo exploratorio inicial en `C:\Users\heman\inmobiliaria-fastapi`) y la **Segunda Entrega** (Diseño formal de arquitectura de software para el MVP en `C:\Users\heman\entregable_2`, integrando patrones GoF y principios SOLID en las funcionalidades priorizadas).
+- **Contexto:** Sistema de Búsqueda y Estimación Inmobiliaria (Medellín). Evaluación de la evolución técnica entre la **Primera Entrega** (Modelo Verbal y prototipo exploratorio inicial) y la **Segunda Entrega** (Diseño formal de arquitectura de software para el MVP, integrando patrones GoF y principios SOLID en las funcionalidades priorizadas).
 
 ---
 
