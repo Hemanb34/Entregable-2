@@ -285,7 +285,7 @@ export default function Propietario({ navigate }: PropietarioProps) {
               <div className="bg-gray-50 rounded-2xl p-5">
                 <div className="text-xs font-semibold text-[#06C167] uppercase tracking-wider mb-2">Modelo predictivo</div>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  Nuestro modelo analiza más de 4.800 inmuebles activos en Medellín con un margen de error inferior al 12%.
+                  Nuestro modelo analiza más de 4.800 inmuebles activos en Medellín con un margen de error inferior al 16%.
                 </p>
               </div>
               <div className="bg-gray-50 rounded-2xl p-5">
@@ -341,7 +341,7 @@ export default function Propietario({ navigate }: PropietarioProps) {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06C167" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
-                  <span className="text-sm text-gray-400">Margen de error del modelo: &lt;12% (RMSE actual: 9.3%)</span>
+                  <span className="text-sm text-gray-400">Margen de error del modelo: &lt;16% (RMSE actual: 9.3%)</span>
                 </div>
               </div>
 

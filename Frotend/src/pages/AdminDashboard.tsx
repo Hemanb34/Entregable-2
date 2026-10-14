@@ -22,7 +22,7 @@ const PIPELINE_STEPS = [
   { name: 'Codificación de variables', desc: 'Variables categóricas codificadas (estrato, tipo, barrio)', done: true },
   { name: 'Escalado numérico', desc: 'Normalización sobre conjunto de entrenamiento (80%)', done: true },
   { name: 'Entrenamiento del modelo', desc: 'Pendiente de ejecución manual', done: false },
-  { name: 'Validación RMSE', desc: 'Criterio: RMSE ≤ 12% en conjunto de validación', done: false },
+  { name: 'Validación RMSE', desc: 'Criterio: RMSE ≤ 16% en conjunto de validación', done: false },
   { name: 'Despliegue a producción', desc: 'Solo si pasa validación RMSE', done: false },
 ]
 
@@ -39,12 +39,12 @@ const AUDIT_LOGS = [
 
 function RMSEChart() {
   const W = 380, H = 110, padX = 10, padY = 12
-  const min = 8, max = 13
+  const min = 8, max = 18
   const xS = (i: number) => padX + (i / (RMSE_DATA.length - 1)) * (W - padX * 2)
   const yS = (v: number) => H - padY - ((v - min) / (max - min)) * (H - padY * 2)
   const path = RMSE_DATA.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xS(i)} ${yS(v)}`).join(' ')
   const area = `${path} L ${xS(RMSE_DATA.length - 1)} ${H - padY} L ${xS(0)} ${H - padY} Z`
-  const threshold = yS(12)
+  const threshold = yS(16)
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none">
@@ -55,7 +55,7 @@ function RMSEChart() {
         </linearGradient>
       </defs>
       <line x1={padX} y1={threshold} x2={W - padX} y2={threshold} stroke="#ef4444" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
-      <text x={W - padX - 2} y={threshold - 3} fontSize="7" fill="#ef4444" textAnchor="end" opacity="0.7">12% umbral</text>
+      <text x={W - padX - 2} y={threshold - 3} fontSize="7" fill="#ef4444" textAnchor="end" opacity="0.7">16% umbral</text>
       <path d={area} fill="url(#rmseGrad)" />
       <path d={path} fill="none" stroke="#06C167" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       {RMSE_DATA.map((v, i) => (
@@ -209,7 +209,7 @@ export default function AdminDashboard({ navigate }: AdminDashboardProps) {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: 'Total inmuebles', value: totalRecords.toLocaleString('es-CO'), sub: '+247 esta semana', color: 'text-black' },
-                  { label: 'RMSE actual', value: '9.3%', sub: 'Por debajo del umbral (12%)', color: 'text-[#06C167]' },
+                  { label: 'RMSE actual', value: '9.3%', sub: 'Por debajo del umbral (16%)', color: 'text-[#06C167]' },
                   { label: 'Portales activos', value: '3', sub: 'Finca Raíz, Metro, Vivareal', color: 'text-black' },
                   { label: 'Última extracción', value: 'hace 2h', sub: '1.247 registros procesados', color: 'text-black' },
                 ].map(card => (
@@ -361,12 +361,12 @@ export default function AdminDashboard({ navigate }: AdminDashboardProps) {
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">RMSE actual</p>
                     <div className="text-5xl font-bold text-[#06C167] mb-1">9.3%</div>
-                    <p className="text-xs text-gray-400">Umbral máximo: 12% · Estado: aprobado</p>
+                    <p className="text-xs text-gray-400">Umbral máximo: 16% · Estado: aprobado</p>
                     <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#06C167] rounded-full" style={{ width: `${(9.3 / 12) * 100}%` }} />
+                      <div className="h-full bg-[#06C167] rounded-full" style={{ width: `${(9.3 / 16) * 100}%` }} />
                     </div>
                     <div className="flex justify-between text-xs text-gray-400 mt-1">
-                      <span>0%</span><span className="text-red-400">12% límite</span>
+                      <span>0%</span><span className="text-red-400">16% límite</span>
                     </div>
                   </div>
                   <div>
@@ -391,7 +391,7 @@ export default function AdminDashboard({ navigate }: AdminDashboardProps) {
                   <div>
                     <h3 className="font-bold text-base">Reentrenamiento del modelo</h3>
                     <p className="text-sm text-gray-500 mt-1">
-                      Ejecuta el pipeline completo: preprocesamiento, entrenamiento y validación. Solo se desplegará si RMSE ≤ 12%.
+                      Ejecuta el pipeline completo: preprocesamiento, entrenamiento y validación. Solo se desplegará si RMSE ≤ 16%.
                     </p>
                   </div>
                   <button

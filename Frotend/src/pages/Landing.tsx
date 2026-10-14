@@ -282,7 +282,7 @@ export default function Landing({ navigate }: LandingProps) {
             <div className="text-4xl font-bold mb-1 text-[#06C167]">IA</div>
             <div className="text-sm font-semibold mb-2">Modelo predictivo de precios</div>
             <div className="text-sm text-gray-400 leading-relaxed">
-              Nuestro modelo tiene un margen de error inferior al 12% en la estimación de precios de arriendo en Medellín.
+              Nuestro modelo tiene un margen de error inferior al 16% en la estimación de precios de arriendo en Medellín.
             </div>
           </div>
         </div>
